@@ -10,15 +10,14 @@ expected input:
 
 ```
 Usage of ./bin/calculate:
-  -M int
-    	Maximums iteration depht (default 20)
-  -m int
-    	Margin on target (default 1)
-  -shimlist string
-    	comma seperated list of shims (default "24,27,30,33,36,39,42,45,69,93,111,117,141")
-  -t int
-    	Target thikness (default 176)
-
+                 -M int
+                   	Maximums iteration depht (max shims in one set) (default 6)
+                 -m int
+                   	Margin on target (default 1)
+                 -shimlist string
+                   	Comma seperated list of shims (default "24,27,30,33,36,39,42,45,69,93,111,117,141")
+                 -t int
+                   	Target thickness (default 176)
 ```
 
 ### Build

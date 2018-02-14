@@ -1,5 +1,11 @@
 package main
 
+/*
+example input:
+list: 24 27 30 33 36 39 42 45 69 93 111 117 141
+target: 176
+ */
+
 import (
 	"flag"
 	"sort"
@@ -8,16 +14,47 @@ import (
 	"strings"
 	"strconv"
 	"os"
+	"errors"
 )
 
 var (
-	targetThikness = flag.Int("t",176,"Target thikness")
+	targetThickness = flag.Int("t",176,"Target thickness")
 	targetMargin = flag.Int("m",1,"Margin on target")
-	shimList = flag.String("shimlist","24,27,30,33,36,39,42,45,69,93,111,117,141","comma seperated list of shims")
-	maxItterations = flag.Int("M",20,"Maximums iteration depht")
+	shimList = flag.String("shimlist","24,27,30,33,36,39,42,45,69,93,111,117,141","Comma seperated list of shims")
+	maxIterations = flag.Int("M",6,"Maximums iteration depht (max shims in one set)")
 )
 
-type ResultSet []int
+type ShimList struct {
+	Shims		[]int        `json:"shims"`
+}
+
+func newShimList(s []int) (sl ShimList){
+	sort.Sort(sort.Reverse(sort.IntSlice(s)))
+	sl.Shims = s
+	return
+}
+
+func newShimListFromString(s string)(sl ShimList, err error){
+	sShims := strings.Split(s,",")
+	for _,s := range sShims {
+		if i,e := strconv.Atoi(s); e == nil {
+			sl.Shims = append(sl.Shims,i)
+		} else {
+			err = errors.New("Error: could not convert shimlist input to integers")
+			return
+		}
+	}
+	return
+}
+
+type ResultSet struct {
+	Thickness int        `json:"thikness"`
+	Shims     []int      `json:"shims"`
+}
+
+type ResultList struct {
+	Results 	[]ResultSet        `json:"results"`
+}
 
 func T(s []int) (r int) {
 	for _,t := range s {
@@ -26,75 +63,87 @@ func T(s []int) (r int) {
 	return
 }
 
-func GenArrays(l int,shims []int) (lists [][]int){
+func (rs ResultSet) String() string{
+	return fmt.Sprintf("%v  -> %v",rs.Thickness,rs.Shims)
+}
+
+func (rl ResultList) String() (str string){
+	for _,r := range rl.Results {
+		str += fmt.Sprintf("%s\n",r)
+	}
+	return
+}
+
+func GenArrays(l int,sl ShimList) (lists []ResultSet){
 	if l == 1 {
-		for _,s := range shims {
-			t := []int{s}
-			lists = append(lists,t)
+		for _,shim := range sl.Shims {
+			t := []int{shim}
+			rs := ResultSet{
+				Thickness: 	shim,
+				Shims:		t,
+			}
+			lists = append(lists,rs)
 		}
 	} else {
-		sublists := GenArrays( l - 1 , shims )
-		for _,s := range shims {
-			for _,sl := range sublists {
-				t := make([]int,len(sl))
-				copy(t,sl)
-				t = append(t,s)
-				lists = append(lists,t)
+		sublists := GenArrays( l - 1 , sl )
+		for _,shim := range sl.Shims {
+			for _,rs := range sublists {
+				t := make([]int,l-1)
+				copy(t,rs.Shims)
+				t = append(t,shim)
+
+				rsn := ResultSet{
+					Thickness:	rs.Thickness + shim,
+					Shims:		t,
+				}
+				lists = append(lists,rsn)
 			}
 		}
 	}
 	return
 }
 
-func Caluculate(target, tolerance int, shims []int){
+func (r *ResultList) Generate(l int,shims ShimList) {
+	r.Results = GenArrays(l,shims)
+}
+
+func Calculate(target, tolerance int, shims ShimList) (oklist ResultList){
 	stop := false
-	for i := 1 ; stop == false; i++ {
-		l := GenArrays(i,shims)
+	for i := 1; stop == false; i++ {
+		rl := ResultList{}
+		rl.Generate(i,shims)
 		stop = true
-		for _,s := range l {
-			t := T(s)
-			if t <= target {
-				stop = false
-			}
-			if math.Abs(float64(target - t)) <= float64(tolerance) {
-				fmt.Printf("Possible sollution: %v (sum: %v) (tolerance: %v)\n",s,t,target - t)
+		for _,rs := range rl.Results {
+			stop = false
+			if rs.Thickness <= target + tolerance {
+				if math.Abs(float64(rs.Thickness - target)) <= float64(tolerance) {
+					oklist.Results = append(oklist.Results, rs)
+				}
 			}
 		}
-		if i >= *maxItterations {
+		if i >= *maxIterations {
 			stop = true
-			fmt.Println("Maximum iterations reached")
+			fmt.Printf("Maximum of %v iterations reached",*maxIterations)
 		}
 	}
+	return
 }
 
 func main() {
 	flag.Parse()
 
-	sShims := strings.Split(*shimList,",")
-	var shims []int
-	for _,s := range sShims {
-
-		if i,e := strconv.Atoi(s); e == nil {
-			shims = append(shims,i)
-		} else {
-			fmt.Println("Error: could not convert shimlist input to integers")
-			os.Exit(1)
-		}
+	shims,err := newShimListFromString(*shimList)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
-	sort.Sort(sort.Reverse(sort.IntSlice(shims)))
-
-	target := *targetThikness
+	target := *targetThickness
 	tolerance := *targetMargin
 
 	fmt.Printf("Available shims: %v\n",shims)
 	fmt.Printf("Target: %v  (tolerance: %v)\n",target,tolerance)
 
-	Caluculate(target,tolerance,shims)
+	result := Calculate(target,tolerance,shims)
+	fmt.Printf("%s",result)
 }
-
-/*
-example input:
-list: 24 27 30 33 36 39 42 45 69 93 111 117 141
-target: 176
- */
