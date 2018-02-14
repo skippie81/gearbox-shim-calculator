@@ -141,12 +141,13 @@ func Calculate(target, tolerance int, shims ShimList) (oklist ResultList){
 	for i := 1; stop == false; i++ {
 		rl := ResultList{}
 		rl.Generate(i,shims)
-		stop = true
 		for _,rs := range rl.Results {
-			stop = false
 			if rs.Thickness <= target + tolerance {
 				if math.Abs(float64(rs.Thickness - target)) <= float64(tolerance) {
 					oklist.Results = append(oklist.Results, rs)
+					if rs.Thickness == target {
+						stop = true
+					}
 				}
 			}
 		}
