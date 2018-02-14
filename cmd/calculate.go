@@ -152,7 +152,7 @@ func Calculate(target, tolerance int, shims ShimList) (oklist ResultList){
 		}
 		if i >= *maxIterations {
 			stop = true
-			fmt.Printf("Maximum of %v iterations reached",*maxIterations)
+			fmt.Printf("Maximum of %v iterations reached\n",*maxIterations)
 		}
 	}
 	return
