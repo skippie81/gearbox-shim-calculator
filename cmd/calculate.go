@@ -36,14 +36,16 @@ func newShimList(s []int) (sl ShimList){
 
 func newShimListFromString(s string)(sl ShimList, err error){
 	sShims := strings.Split(s,",")
+	var l []int
 	for _,s := range sShims {
 		if i,e := strconv.Atoi(s); e == nil {
-			sl.Shims = append(sl.Shims,i)
+			l = append(l,i)
 		} else {
 			err = errors.New("Error: could not convert shimlist input to integers")
 			return
 		}
 	}
+	sl = newShimList(l)
 	return
 }
 
@@ -54,13 +56,6 @@ type ResultSet struct {
 
 type ResultList struct {
 	Results 	[]ResultSet        `json:"results"`
-}
-
-func T(s []int) (r int) {
-	for _,t := range s {
-		r = r + t
-	}
-	return
 }
 
 func (rs ResultSet) String() string{
