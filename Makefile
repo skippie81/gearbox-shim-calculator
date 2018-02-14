@@ -20,4 +20,4 @@ buildall:
 	GOOS=solaris GOARCH=amd64 go build -o bin/solaris/amd64/calculate cmd/calculate.go
 
 release: buildall
-	tar czvf shim-calculate.tar.gz bin/
+	tar czvf shim-calculate_v$(RELEASE).tar.gz bin/
