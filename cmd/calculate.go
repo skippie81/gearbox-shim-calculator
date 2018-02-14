@@ -74,6 +74,34 @@ func (rl ResultList) String() (str string){
 	return
 }
 
+func NewSets(setLengt,shims, iteration int) int {
+	if setLengt == 1 {
+		if iteration == 0 {
+			return shims
+		} else {
+			return 0
+		}
+	} else {
+		if iteration == 0 {
+			t := 0
+			for i := 0; i < shims; i++ {
+				t = t + NewSets(setLengt-1,shims,i)
+			}
+			return t
+		} else {
+			if setLengt != 2 {
+				return NewSets(setLengt, shims, iteration - 1) - NewSets(setLengt - 1, shims, iteration - 1)
+			} else {
+				return NewSets(setLengt, shims, iteration - 1) - 1
+			}
+		}
+	}
+}
+
+func StartIndex(lenght, setLenght, shims, iteration int) int {
+	return lenght - NewSets(setLenght,shims, iteration)
+}
+
 func GenArrays(l int,sl ShimList) (lists []ResultSet){
 	if l == 1 {
 		for _,shim := range sl.Shims {
@@ -86,14 +114,15 @@ func GenArrays(l int,sl ShimList) (lists []ResultSet){
 		}
 	} else {
 		sublists := GenArrays( l - 1 , sl )
-		for _,shim := range sl.Shims {
-			for _,rs := range sublists {
+
+		for c,shim := range sl.Shims {
+			for i := StartIndex(len(sublists),l,len(sl.Shims),c); i < len(sublists); i++ {
 				t := make([]int,l-1)
-				copy(t,rs.Shims)
+				copy(t,sublists[i].Shims)
 				t = append(t,shim)
 
 				rsn := ResultSet{
-					Thickness:	rs.Thickness + shim,
+					Thickness:	sublists[i].Thickness + shim,
 					Shims:		t,
 				}
 				lists = append(lists,rsn)
