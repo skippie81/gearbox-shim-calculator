@@ -22,6 +22,10 @@ var (
 	targetMargin = flag.Int("m",1,"Margin on target")
 	shimList = flag.String("shimlist","24,27,30,33,36,39,42,45,69,93,111,117,141","Comma seperated list of shims")
 	maxIterations = flag.Int("M",6,"Maximums iteration depht (max shims in one set)")
+	threads = flag.Int("threads",2,"Threads to use")
+
+	dataSet = &DataSet{make(map[int]*ResultList)}
+	runningThreads *int
 )
 
 type ShimList struct {
@@ -55,7 +59,8 @@ type ResultSet struct {
 }
 
 type ResultList struct {
-	Results 	[]ResultSet        `json:"results"`
+	Results      []ResultSet     `json:"results"`
+	ResultLength int             `json:"result_length"`
 }
 
 func (rs ResultSet) String() string{
@@ -67,6 +72,10 @@ func (rl ResultList) String() (str string){
 		str += fmt.Sprintf("%s\n",r)
 	}
 	return
+}
+
+type DataSet struct {
+	Data 	map[int]*ResultList
 }
 
 func NewSets(setLengt,shims, iteration int) int {
@@ -98,6 +107,12 @@ func StartIndex(lenght, setLenght, shims, iteration int) int {
 }
 
 func GenArrays(l int,sl ShimList) (lists []ResultSet){
+
+	if dataSet.Data[l] != nil {
+		fmt.Printf("Cache hit for %v\n",l)
+		return dataSet.Data[l].Results
+	}
+
 	if l == 1 {
 		for _,shim := range sl.Shims {
 			t := []int{shim}
@@ -129,28 +144,72 @@ func GenArrays(l int,sl ShimList) (lists []ResultSet){
 
 func (r *ResultList) Generate(l int,shims ShimList) {
 	r.Results = GenArrays(l,shims)
+	r.ResultLength = l
+}
+
+func (oklist *ResultList) LoadResults(target,tolerance int,rl *ResultList){
+	stop := true
+	for _,rs := range rl.Results {
+		if rs.Thickness <= target + tolerance {
+			stop = false
+			if math.Abs(float64(rs.Thickness - target)) <= float64(tolerance) {
+				oklist.Results = append(oklist.Results, rs)
+			}
+		}
+	}
+
+	if stop {
+		// if all sets in current list are lager than target + tolerance
+		// we just set maxitterations to 1 so there are no new calculations starting
+		// as longer sets will never return smaller thikness than thinnest combination of this current set
+		fmt.Printf("Set of %v lenght returned no combinations smaller than %v, stopping further calculations",rl.ResultLength,target+tolerance)
+		*maxIterations = 1
+	}
+}
+
+func RunCalculationThread(lenght, target, toleration int,shims ShimList,foundList *ResultList,c chan *ResultList){
+	rl := ResultList{}
+	rl.Generate(lenght,shims)
+
+	c <- &rl
+
+	foundList.LoadResults(target,toleration,&rl)
+	fmt.Printf("Stop thread for setlenght %v\n",lenght)
+	*runningThreads--
+}
+
+func CacheBuilder(c chan *ResultList){
+	for rl := range c {
+		if dataSet.Data[rl.ResultLength] == nil {
+			fmt.Printf("save setlenght %v to cache\n",rl.ResultLength)
+			dataSet.Data[rl.ResultLength] = rl
+		}
+	}
 }
 
 func Calculate(target, tolerance int, shims ShimList) (oklist ResultList){
-	stop := false
-	for i := 1; stop == false; i++ {
-		rl := ResultList{}
-		rl.Generate(i,shims)
-		for _,rs := range rl.Results {
-			if rs.Thickness <= target + tolerance {
-				if math.Abs(float64(rs.Thickness - target)) <= float64(tolerance) {
-					oklist.Results = append(oklist.Results, rs)
-					if rs.Thickness == target {
-						stop = true
-					}
-				}
-			}
+	i :=1
+	t := 0
+	runningThreads = &t
+
+	c := make(chan *ResultList)
+	go CacheBuilder(c)
+
+	for i <= *maxIterations {
+		for *runningThreads < *threads -1 && i < *maxIterations {
+			*runningThreads++
+			fmt.Printf("Starting thread %d for setlenght %v\n",*runningThreads,i)
+			go RunCalculationThread(i,target,tolerance,shims,&oklist,c)
+			i++
 		}
-		if i >= *maxIterations {
-			stop = true
-			fmt.Printf("Maximum of %v iterations reached\n",*maxIterations)
-		}
+		*runningThreads++
+		fmt.Printf("Starting thread %d for setlenght %v\n",*runningThreads,i)
+		RunCalculationThread(i,target,tolerance,shims,&oklist,c)
+		i++
 	}
+
+	close(c)
+
 	return
 }
 
@@ -166,8 +225,14 @@ func main() {
 	target := *targetThickness
 	tolerance := *targetMargin
 
+	if *threads >= *maxIterations {
+		fmt.Printf("Setting threads to %v as this is the max set of itterations\n",*maxIterations)
+		*threads = *maxIterations
+	}
+
 	fmt.Printf("Available shims: %v\n",shims)
 	fmt.Printf("Target: %v  (tolerance: %v)\n",target,tolerance)
+	fmt.Printf("Using %v threads for calculation\n",*threads)
 
 	result := Calculate(target,tolerance,shims)
 	fmt.Printf("%s",result)
