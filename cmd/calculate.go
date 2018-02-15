@@ -68,9 +68,24 @@ func (rs ResultSet) String() string{
 }
 
 func (rl ResultList) String() (str string){
+
+	var exact string
+
+	str += fmt.Sprintf("\nWe found the following sets for %v +- %v\n========================================================== \n\n",*targetThickness,*targetMargin)
+
 	for _,r := range rl.Results {
 		str += fmt.Sprintf("%s\n",r)
+		if r.Thickness == *targetThickness {
+			exact += fmt.Sprintf("%s\n",r)
+		}
 	}
+
+	if exact != "" {
+		str += fmt.Sprintf("\nExact Matches found: \n========================================================== \n\n%s",exact)
+	} else {
+		str += fmt.Sprint("\nNo exact matches found \n========================================================== \n")
+	}
+
 	return
 }
 
