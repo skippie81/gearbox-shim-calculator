@@ -1,4 +1,4 @@
-RELEASE ?= 1.0.0
+RELEASE ?= 1.1.0
 
 default: build
 
