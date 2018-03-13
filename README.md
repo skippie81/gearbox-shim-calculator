@@ -25,5 +25,5 @@ Usage of ./bin/calculate:
 ### Build
 
 ```
-./make
+make
 ```
