@@ -21,6 +21,7 @@ var (
 	targetThickness = flag.Int("t",176,"Target thickness")
 	targetMargin = flag.Int("m",1,"Margin on target")
 	shimList = flag.String("shimlist","24,27,30,33,36,39,42,45,69,93,111,117,141","Comma seperated list of shims")
+	noreuse = flag.Bool("noreuse",false,"Do not reuse shims in the inputlist")
 	maxIterations = flag.Int("M",10,"Maximums iteration depht (max shims in one set)")
 	threads = flag.Int("threads",2,"Threads to use") // not used for now
 )
@@ -47,13 +48,43 @@ func newShimListFromString(s string)(sl ShimList, err error){
 	var l []int
 	for _,s := range sShims {
 		if i,e := strconv.Atoi(s); e == nil {
-			l = append(l,i)
+			if a,_ := inArray(i,l); a != true {
+				l = append(l, i)
+			}
 		} else {
 			err = errors.New("Error: could not convert shimlist input to integers")
 			return
 		}
 	}
 	sl = newShimList(l)
+	return
+}
+
+// return int array from comma list
+func createArray(s string)(arr []int, err error) {
+	ssplit := strings.Split(s,",")
+	for _,s := range ssplit {
+		if i,e := strconv.Atoi(s); e == nil {
+			arr = append(arr,i)
+		} else {
+			err = errors.New("Error: cound not convert shimlist input to integers")
+			return
+		}
+	}
+	return
+}
+
+// an test if in array function
+func inArray(val int, arr []int) (exists bool, index int){
+	exists = false
+	index = -1
+	for i,v := range arr {
+		if v == val {
+			exists = true
+			index = i
+			return
+		}
+	}
 	return
 }
 
@@ -104,6 +135,30 @@ func (rl ResultList) String() (str string){
 	return
 }
 
+func count(arr []int, i int) (c int) {
+	for _,v := range arr {
+		if v == i {
+			c++
+		}
+	}
+	return
+}
+
+// filter resultset for reuses if requested
+func filterReuse(rl ResultList, input []int) (f ResultList) {
+	for _,rs := range rl.Results {
+		add := true
+		for _,shim := range rs.Shims {
+			if count(rs.Shims,shim) > count(input,shim) {
+				add = false
+			}
+		}
+		if add {
+			f.Results = append(f.Results,rs)
+		}
+	}
+	return
+}
 
 // generation of the resultsets
 
@@ -226,5 +281,17 @@ func main() {
 	fmt.Printf("Using %v threads for calculation\n",*threads)
 
 	result := Calculate(target,tolerance,*maxIterations,shims)
-	fmt.Printf("%s",result)
+
+	if *noreuse == true {
+		l,e := createArray(*shimList)
+		fmt.Printf("No reuse enabled, filtering results to only use %v" , l)
+		if e != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		r := filterReuse(result,l)
+		fmt.Printf("%s",r)
+	} else {
+		fmt.Printf("%s", result)
+	}
 }
